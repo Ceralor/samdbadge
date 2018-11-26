@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.env.linux": {
+        "PATH": "/home/ceralor/.platformio/penv/bin:/home/ceralor/.platformio/penv:/home/ceralor/.local/bin:/usr/local/bin:/usr/lib64/qt-3.3/bin:/usr/share/Modules/bin:/usr/lib64/ccache:/home/ceralor/.cargo/bin:/usr/local/bin:/usr/bin:/bin:/home/ceralor/bin:/usr/local/sbin:/usr/sbin:/var/lib/snapd/snap/bin:/home/ceralor/bin",
+        "PLATFORMIO_CALLER": "vscode"
+    }
+}
