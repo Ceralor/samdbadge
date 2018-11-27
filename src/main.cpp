@@ -1,69 +1,66 @@
 #include <GxEPD2_3C.h>
-#include <Fonts/FreeMonoBold9pt7b.h>
+//#include <Fonts/FreeMonoBold9pt7b.h>
 GxEPD2_3C<GxEPD2_290c, GxEPD2_290c::HEIGHT> display(GxEPD2_290c(/*CS=5*/ 4, /*DC=*/ 26, /*RST=*/ 25, /*BUSY=*/ 36));
-#include <Adafruit_NeoPixel.h>
-#define NEOPIN            21
-#define NUMPIXELS      1
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, NEOPIN, NEO_GRB + NEO_KHZ800);
+
 // has support for FAT32 support with long filenames
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
+
 #define SdFile File
 #define seekSet seek
-#define DELAY_SEC 30
+#define SD_CS 17
+#define DELAY_SEC 600 /* Time between wakeups */
+#define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
+
 // function declaration with default parameter
 void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_color = true, bool partial_update = false, bool overwrite = false);
 uint32_t read32(SdFile& f);
 uint16_t read16(SdFile& f);
-void blinkRed();
+//void blinkRed();
 void listDir(fs::FS &fs, const char * dirname="/slideshow");
 void getFileNameFromIndex(uint16_t index, fs::FS &fs, const char * dirname);
 
-char* slideshow_images;
-bool slideshow_active = false;
-
 // total number of files on SD card
 uint16_t totalFiles = 0;
+// current index, persists deep sleep
+RTC_DATA_ATTR int currIndex = 0;
 // current file name to load
 char currFile[256];
 
 void setup()
 {
   Serial.begin(115200);
-  pixels.begin();
-  pixels.setBrightness(1);
-  pixels.show();
-  Serial.println();
-  Serial.println("GxEPD2_SD_Example");
+  delay(1000);
+  esp_sleep_wakeup_cause_t wakeup_reason;
+  wakeup_reason = esp_sleep_get_wakeup_cause();
+  if (wakeup_reason != 3) currIndex = 0;
 
   display.init(115200);
-
   Serial.print("Initializing SD card...");
-  if (!SD.begin(17))
+  if (!SD.begin(SD_CS))
   {
-    for (int i=0;i<3;i++) blinkRed();
     Serial.println("SD failed!");
     return;
   }
   Serial.println("SD OK!");
   listDir(SD,"/slideshow");
-  //int16_t x = 0;
-  //int16_t y = 0;
-  //drawBitmapFromSD("test.bmp", x, y);
-
+  getFileNameFromIndex(currIndex, SD, "/slideshow");
+  Serial.print("Cycling to file ");
+  Serial.println(currFile);
+  drawBitmapFromSD(currFile,0,0);
+  currIndex++;
+  if (currIndex == totalFiles) currIndex = 0;
+  esp_sleep_enable_timer_wakeup(DELAY_SEC * uS_TO_S_FACTOR);
+  delay(1000);
+  esp_deep_sleep_start();
   //Serial.println("Test done");
 }
 
 void loop(void)
 {
-  for (uint16_t currIndex=0;currIndex<totalFiles;currIndex++) {
-    getFileNameFromIndex(currIndex, SD, "/slideshow");
-    Serial.print("Cycling to file ");
-    Serial.println(currFile);
-    drawBitmapFromSD(currFile,0,0);
-    delay(DELAY_SEC * 1000);
-  }
+  Serial.println("This shouldn't ever come back.");
+  delay(5000);
 }
 
 void listDir(fs::FS &fs, const char * dirname){
@@ -135,13 +132,6 @@ uint8_t output_row_color_buffer[max_row_width / 8]; // buffer for at least one r
 uint8_t mono_palette_buffer[max_palette_pixels / 8]; // palette buffer for depth <= 8 b/w
 uint8_t color_palette_buffer[max_palette_pixels / 8]; // palette buffer for depth <= 8 c/w
 
-void blinkRed() {
-  pixels.setPixelColor(0,pixels.Color(255,0,0));
-  delay(50);
-  pixels.setPixelColor(0,pixels.Color(0,0,0));
-  delay(50);
-}
-
 void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_color, bool partial_update, bool overwrite)
 {
   SdFile file;
@@ -163,7 +153,7 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
   if (read16(file) == 0x4D42) // BMP signature
   {
     uint32_t fileSize = read32(file);
-    uint32_t creatorBytes = read32(file);
+    uint32_t creatorBytes = read32(file); // Unused, but done anyway.
     uint32_t imageOffset = read32(file); // Start of image data
     uint32_t headerSize = read32(file);
     uint32_t width  = read32(file);
@@ -174,6 +164,7 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
     if ((planes == 1) && ((format == 0) || (format == 3))) // uncompressed is handled, 565 also
     {
       Serial.print("File size: "); Serial.println(fileSize);
+      //Serial.print("Creator: "); Serial.println(creatorBytes);
       Serial.print("Image Offset: "); Serial.println(imageOffset);
       Serial.print("Header size: "); Serial.println(headerSize);
       Serial.print("Bit Depth: "); Serial.println(depth);
@@ -309,6 +300,7 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
         }
         while (display.nextPage());
         Serial.print("loaded in "); Serial.print(millis() - startTime); Serial.println(" ms");
+        delay(10000);
       }
     }
   }
