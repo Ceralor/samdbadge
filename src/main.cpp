@@ -20,7 +20,7 @@ uint16_t read16(SdFile& f);
 //void blinkRed();
 void listDir(fs::FS &fs, const char * dirname="/slideshow");
 void getFileNameFromIndex(uint16_t index, fs::FS &fs, const char * dirname);
-
+void blinkRed(int flashtimes=3);
 // total number of files on SD card
 uint16_t totalFiles = 0;
 // current index, persists deep sleep
@@ -30,37 +30,52 @@ char currFile[256];
 
 void setup()
 {
-  Serial.begin(115200);
-  delay(1000);
-  esp_sleep_wakeup_cause_t wakeup_reason;
-  wakeup_reason = esp_sleep_get_wakeup_cause();
-  if (wakeup_reason != 3) currIndex = 0;
+  //Serial.begin(115200);
+  pinMode(13, OUTPUT);
+  digitalWrite(13,1);
+  delay(500);
+  //esp_sleep_wakeup_cause_t wakeup_reason;
+  //wakeup_reason = esp_sleep_get_wakeup_cause();
+  //if (wakeup_reason != 3 || wakeup_reason != ) currIndex = 0;
 
   display.init(115200);
-  Serial.print("Initializing SD card...");
+  // Serial.print("Initializing SD card...");
   if (!SD.begin(SD_CS))
   {
-    Serial.println("SD failed!");
+    // Serial.println("SD failed!");
+    digitalWrite(13,0);
     return;
   }
-  Serial.println("SD OK!");
+  // Serial.println("SD OK!");
   listDir(SD,"/slideshow");
+  if (currIndex >= totalFiles) currIndex = 0;
+
   getFileNameFromIndex(currIndex, SD, "/slideshow");
-  Serial.print("Cycling to file ");
-  Serial.println(currFile);
+  // Serial.print("Cycling to file ");
+  // Serial.println(currFile);
   drawBitmapFromSD(currFile,0,0);
   currIndex++;
-  if (currIndex == totalFiles) currIndex = 0;
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_12, 1);
   esp_sleep_enable_timer_wakeup(DELAY_SEC * uS_TO_S_FACTOR);
-  delay(1000);
+  digitalWrite(13,0);
+  delay(200);
   esp_deep_sleep_start();
   //Serial.println("Test done");
 }
 
 void loop(void)
 {
-  Serial.println("This shouldn't ever come back.");
-  delay(5000);
+  //Serial.println("This shouldn't ever come back.");
+  //delay(5000);
+}
+
+void blinkRed(int flashtimes){
+  for (int i=0;i<flashtimes;i++){
+    digitalWrite(13,1);
+    delay(50);
+    digitalWrite(13,0);
+    delay(50);
+  }
 }
 
 void listDir(fs::FS &fs, const char * dirname){
@@ -68,11 +83,12 @@ void listDir(fs::FS &fs, const char * dirname){
 
     File root = fs.open(dirname);
     if(!root){
-        Serial.println("Failed to open directory");
+        //Serial.println("Failed to open directory");
+        blinkRed();
         return;
     }
     if(!root.isDirectory()){
-        Serial.println("Not a directory");
+        // Serial.println("Not a directory");
         return;
     }
 
@@ -85,18 +101,21 @@ void listDir(fs::FS &fs, const char * dirname){
           // Do nothing
         } else {
             totalFiles++;
-            Serial.print("  FILE: ");
-            Serial.print(file.name());
-            Serial.print("  SIZE: ");
-            Serial.println(file.size());
+            // Serial.print("  FILE: ");
+            // Serial.print(file.name());
+            // Serial.print("  SIZE: ");
+            // Serial.println(file.size());
         }
+        file.close();
         file = root.openNextFile();
     }
+    root.close();
 }
 
 void getFileNameFromIndex(uint16_t index, fs::FS &fs, const char * dirname){
     File root = fs.open(dirname);
     if(!root){
+      blinkRed();
         return;
     }
     if(!root.isDirectory()){
@@ -112,12 +131,15 @@ void getFileNameFromIndex(uint16_t index, fs::FS &fs, const char * dirname){
         } else {
             if(iter == index) {
               strcpy(currFile, file.name());
+              file.close();
               return;
             }
             iter++;
         }
+        file.close();
         file = root.openNextFile();
     }
+    root.close();
 }
 
 
@@ -139,14 +161,14 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
   bool flip = true; // bitmap is stored bottom-to-top
   uint32_t startTime = millis();
   if ((x >= display.width()) || (y >= display.height())) return;
-  Serial.println();
-  Serial.print("Loading image '");
-  Serial.print(filename);
-  Serial.println('\'');
+  // Serial.println();
+  // Serial.print("Loading image '");
+  // Serial.print(filename);
+  // Serial.println('\'');
   file = SD.open(String("/") + filename, FILE_READ);
   if (!file)
   {
-    Serial.print("File not found");
+    //Serial.print("File not found");
     return;
   }
   // Parse BMP header
@@ -163,15 +185,15 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
     uint32_t format = read32(file);
     if ((planes == 1) && ((format == 0) || (format == 3))) // uncompressed is handled, 565 also
     {
-      Serial.print("File size: "); Serial.println(fileSize);
-      //Serial.print("Creator: "); Serial.println(creatorBytes);
-      Serial.print("Image Offset: "); Serial.println(imageOffset);
-      Serial.print("Header size: "); Serial.println(headerSize);
-      Serial.print("Bit Depth: "); Serial.println(depth);
-      Serial.print("Image size: ");
-      Serial.print(width);
-      Serial.print('x');
-      Serial.println(height);
+      // Serial.print("File size: "); Serial.println(fileSize);
+      // //Serial.print("Creator: "); Serial.println(creatorBytes);
+      // Serial.print("Image Offset: "); Serial.println(imageOffset);
+      // Serial.print("Header size: "); Serial.println(headerSize);
+      // Serial.print("Bit Depth: "); Serial.println(depth);
+      // Serial.print("Image size: ");
+      // Serial.print(width);
+      // Serial.print('x');
+      // Serial.println(height);
       // BMP rows are padded (if needed) to 4-byte boundary
       uint32_t rowSize = (width * depth / 8 + 3) & ~3;
       if (depth < 8) rowSize = ((width * depth + 8 - depth) / 8 + 3) & ~3;
@@ -300,11 +322,12 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
         }
         while (display.nextPage());
         Serial.print("loaded in "); Serial.print(millis() - startTime); Serial.println(" ms");
-        delay(10000);
+        delay(1000);
       }
     }
   }
   file.close();
+  delay(1000);
   if (!valid)
   {
     Serial.println("bitmap format not handled.");
