@@ -10,7 +10,7 @@ GxEPD2_3C<GxEPD2_290c, GxEPD2_290c::HEIGHT> display(GxEPD2_290c(/*CS=5*/ 4, /*DC
 #define SdFile File
 #define seekSet seek
 #define SD_CS 17
-#define DELAY_SEC 600 /* Time between wakeups */
+#define DELAY_SEC 420 /* Time between wakeups */
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 
 // function declaration with default parameter
