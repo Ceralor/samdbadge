@@ -1,87 +1,100 @@
 #include <GxEPD2_3C.h>
-//#include <Fonts/FreeMonoBold9pt7b.h>
-GxEPD2_3C<GxEPD2_290c, GxEPD2_290c::HEIGHT> display(GxEPD2_290c(/*CS=5*/ 4, /*DC=*/ 26, /*RST=*/ 25, /*BUSY=*/ 36));
-
 // has support for FAT32 support with long filenames
-#include "FS.h"
+//#include "FS.h"
 #include "SD.h"
 #include "SPI.h"
 
 #define SdFile File
 #define seekSet seek
-#define SD_CS 17
+#define SD_CS 4
+#define EINK_CS 19
+#define EINK_DC 18
+#define EINK_RST 17
+#define EINK_BUSY 16
 #define DELAY_SEC 420 /* Time between wakeups */
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
+
+//#include <Fonts/FreeMonoBold9pt7b.h>
+GxEPD2_3C<GxEPD2_290c, GxEPD2_290c::HEIGHT> display(GxEPD2_290c(EINK_CS, EINK_DC, EINK_RST, EINK_BUSY));
 
 // function declaration with default parameter
 void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_color = true, bool partial_update = false, bool overwrite = false);
 uint32_t read32(SdFile& f);
 uint16_t read16(SdFile& f);
 //void blinkRed();
-void listDir(fs::FS &fs, const char * dirname="/slideshow");
-void getFileNameFromIndex(uint16_t index, fs::FS &fs, const char * dirname);
+void listDir(const char * dirname="/slideshow");
+void getFileNameFromIndex(uint16_t index, const char * dirname);
 void blinkRed(int flashtimes=3);
 // total number of files on SD card
 uint16_t totalFiles = 0;
 // current index, persists deep sleep
-RTC_DATA_ATTR int currIndex = 0;
+volatile int currIndex = 0;
 // current file name to load
 char currFile[256];
 
 void setup()
 {
-  //Serial.begin(115200);
-  pinMode(13, OUTPUT);
-  digitalWrite(13,1);
+  Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT);
+
+  
+  //Serial.println("Test done");
+}
+
+void cycleDisplay(void) {
+   if (!SD.begin(SD_CS))
+  {
+    blinkRed(10);
+    // Serial.println("SD failed!");
+    digitalWrite(LED_BUILTIN,0);
+    return;
+  }
+  // Serial.println("SD OK!");
+  listDir("/slideshow");
+  if (currIndex >= totalFiles) { 
+    currIndex = 0;
+  } else {
+    currIndex++;
+  }
+}
+
+void loop(void)
+{
+  digitalWrite(LED_BUILTIN,1);
   delay(500);
   //esp_sleep_wakeup_cause_t wakeup_reason;
   //wakeup_reason = esp_sleep_get_wakeup_cause();
   //if (wakeup_reason != 3 || wakeup_reason != ) currIndex = 0;
 
   display.init(115200);
-  // Serial.print("Initializing SD card...");
-  if (!SD.begin(SD_CS))
-  {
-    // Serial.println("SD failed!");
-    digitalWrite(13,0);
-    return;
-  }
-  // Serial.println("SD OK!");
-  listDir(SD,"/slideshow");
-  if (currIndex >= totalFiles) currIndex = 0;
-
-  getFileNameFromIndex(currIndex, SD, "/slideshow");
-  // Serial.print("Cycling to file ");
-  // Serial.println(currFile);
-  drawBitmapFromSD(currFile,0,0);
-  currIndex++;
-  esp_sleep_enable_ext0_wakeup(GPIO_NUM_12, 1);
-  esp_sleep_enable_timer_wakeup(DELAY_SEC * uS_TO_S_FACTOR);
-  digitalWrite(13,0);
-  delay(200);
-  esp_deep_sleep_start();
-  //Serial.println("Test done");
-}
-
-void loop(void)
-{
   //Serial.println("This shouldn't ever come back.");
   //delay(5000);
+    // Serial.print("Initializing SD card...");
+
+
+  getFileNameFromIndex(currIndex, "/slideshow");
+  // Serial.print("Cycling to file ");
+  // Serial.println(currFile);
+  //drawBitmapFromSD(currFile,0,0);
+  drawBitmapFromSD("/slideshow/barnem_chubwave.bmp.png.bmp", 0, 0);
+
+  digitalWrite(LED_BUILTIN,0);
+  delay(20000);
 }
 
 void blinkRed(int flashtimes){
   for (int i=0;i<flashtimes;i++){
-    digitalWrite(13,1);
-    delay(50);
-    digitalWrite(13,0);
-    delay(50);
+    digitalWrite(LED_BUILTIN,1);
+    delay(100);
+    digitalWrite(LED_BUILTIN,0);
+    delay(100);
   }
 }
 
-void listDir(fs::FS &fs, const char * dirname){
-    Serial.printf("Listing directory: %s\n", dirname);
+void listDir( const char * dirname){
+    //Serial.printf("Listing directory: %s\n", dirname);
 
-    File root = fs.open(dirname);
+    File root = SD.open(dirname);
     if(!root){
         //Serial.println("Failed to open directory");
         blinkRed();
@@ -112,8 +125,8 @@ void listDir(fs::FS &fs, const char * dirname){
     root.close();
 }
 
-void getFileNameFromIndex(uint16_t index, fs::FS &fs, const char * dirname){
-    File root = fs.open(dirname);
+void getFileNameFromIndex(uint16_t index, const char * dirname){
+    File root = SD.open(dirname);
     if(!root){
       blinkRed();
         return;
@@ -165,7 +178,7 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
   // Serial.print("Loading image '");
   // Serial.print(filename);
   // Serial.println('\'');
-  file = SD.open(String("/") + filename, FILE_READ);
+  file = SD.open(filename);
   if (!file)
   {
     //Serial.print("File not found");
