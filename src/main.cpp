@@ -48,21 +48,11 @@ void setup()
 }
 
 void cycleDisplay() {
-  if(!SD.begin(SD_CS)) blinkRed(10);
-  digitalWrite(LED_BUILTIN, 1);
-  if (isPressed == false) {
-    listDir(SLIDESHOW_ROOT);
-    if (currIndex >= totalFiles) { 
-      currIndex = 0;
-    } else {
-      currIndex++;
-    }
-    digitalWrite(EINK_RST, 1);
-    delay(100);
-    digitalWrite(EINK_RST, 0);
-    blinkRed();
-  }
-  isPressed = true;
+  currIndex = (currIndex+1)%totalFiles; // Will always only cycle between indexes in the range of what's possible.
+}
+
+void flagInterrupt() {
+  interruptFlagged = true;
 }
 
 void loop(void)
