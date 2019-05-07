@@ -3,16 +3,17 @@
 //#include "FS.h"
 #include "SD.h"
 #include "SPI.h"
+#include "ArduinoLowPower.h"
 
 #define SdFile File
 #define seekSet seek
 #define SD_CS 4
+#define WAKE_PIN 15
 #define EINK_CS 19
 #define EINK_DC 18
 #define EINK_RST 17
-#define EINK_BUSY 16
-#define DELAY_SEC 420 /* Time between wakeups */
-#define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
+#define EINK_BUSY 161
+#define DELAY_SEC 60 /* Time between wakeups */
 
 //#include <Fonts/FreeMonoBold9pt7b.h>
 GxEPD2_3C<GxEPD2_290c, GxEPD2_290c::HEIGHT> display(GxEPD2_290c(EINK_CS, EINK_DC, EINK_RST, EINK_BUSY));
@@ -25,69 +26,81 @@ uint16_t read16(SdFile& f);
 void listDir(const char * dirname="/slideshow");
 void getFileNameFromIndex(uint16_t index, const char * dirname);
 void blinkRed(int flashtimes=3);
+void cycleDisplay();
 // total number of files on SD card
 uint16_t totalFiles = 0;
 // current index, persists deep sleep
 volatile int currIndex = 0;
+volatile bool isPressed = false;
 // current file name to load
 char currFile[256];
+char currFilepath[256];
 
 void setup()
 {
-  Serial.begin(115200);
+  Serial.begin(9600);
   pinMode(LED_BUILTIN, OUTPUT);
-
-  
-  //Serial.println("Test done");
-}
-
-void cycleDisplay(void) {
-   if (!SD.begin(SD_CS))
+  pinMode(WAKE_PIN, INPUT_PULLUP);
+  Serial.print("Initializing SD card...");
+  if (!SD.begin(SD_CS))
   {
     blinkRed(10);
-    // Serial.println("SD failed!");
-    digitalWrite(LED_BUILTIN,0);
+    Serial.println("SD failed!");
+    digitalWrite(LED_BUILTIN, 0);
     return;
   }
-  // Serial.println("SD OK!");
-  listDir("/slideshow");
-  if (currIndex >= totalFiles) { 
-    currIndex = 0;
-  } else {
-    currIndex++;
+  Serial.println("SD OK!");
+  //Serial.println("Test done");
+  LowPower.attachInterruptWakeup(WAKE_PIN, cycleDisplay, CHANGE);
+  LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, cycleDisplay, CHANGE);
+}
+
+void cycleDisplay() {
+  if(!SD.begin(SD_CS)) blinkRed(10);
+  digitalWrite(LED_BUILTIN, 1);
+  if (isPressed == false) {
+    listDir("SLIDES");
+    if (currIndex >= totalFiles) { 
+      currIndex = 0;
+    } else {
+      currIndex++;
+    }
+    digitalWrite(EINK_RST, 1);
+    delay(100);
+    digitalWrite(EINK_RST, 0);
+    blinkRed();
   }
+  isPressed = true;
 }
 
 void loop(void)
 {
+  blinkRed();
   digitalWrite(LED_BUILTIN,1);
-  delay(500);
+  delay(1000);
+  display.init(115200);
   //esp_sleep_wakeup_cause_t wakeup_reason;
   //wakeup_reason = esp_sleep_get_wakeup_cause();
   //if (wakeup_reason != 3 || wakeup_reason != ) currIndex = 0;
 
-  display.init(115200);
-  //Serial.println("This shouldn't ever come back.");
-  //delay(5000);
-    // Serial.print("Initializing SD card...");
-
-
-  getFileNameFromIndex(currIndex, "/slideshow");
-  // Serial.print("Cycling to file ");
-  // Serial.println(currFile);
+  getFileNameFromIndex(currIndex, "SLIDES");
+  Serial.print("Cycling to file ");
+  Serial.println(currFile);
   //drawBitmapFromSD(currFile,0,0);
-  drawBitmapFromSD("/slideshow/barnem_chubwave.bmp.png.bmp", 0, 0);
-
+  delay(10000);
+  isPressed = false;
   digitalWrite(LED_BUILTIN,0);
-  delay(20000);
+  display.hibernate();
+  LowPower.sleep(30 * 1000);
+  //LowPower.sleep();
 }
 
 void blinkRed(int flashtimes){
   for (int i=0;i<flashtimes;i++){
     digitalWrite(LED_BUILTIN,1);
-    delay(100);
+    delay(300);
     digitalWrite(LED_BUILTIN,0);
-    delay(100);
+    delay(300);
   }
 }
 
@@ -97,7 +110,7 @@ void listDir( const char * dirname){
     File root = SD.open(dirname);
     if(!root){
         //Serial.println("Failed to open directory");
-        blinkRed();
+        blinkRed(10);
         return;
     }
     if(!root.isDirectory()){
@@ -128,13 +141,14 @@ void listDir( const char * dirname){
 void getFileNameFromIndex(uint16_t index, const char * dirname){
     File root = SD.open(dirname);
     if(!root){
-      blinkRed();
+      blinkRed(5);
         return;
     }
     if(!root.isDirectory()){
         return;
     }
-
+    Serial.print("Looking for image file index position ");
+    Serial.println(String(index));
     File file = root.openNextFile();
 
     uint16_t iter = 0;
@@ -143,7 +157,9 @@ void getFileNameFromIndex(uint16_t index, const char * dirname){
           // Do nothing for dir
         } else {
             if(iter == index) {
-              strcpy(currFile, file.name());
+              strcpy(currFile, dirname);
+              strcat(currFile,"/");
+              strcat(currFile, file.name());
               file.close();
               return;
             }
@@ -174,14 +190,14 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
   bool flip = true; // bitmap is stored bottom-to-top
   uint32_t startTime = millis();
   if ((x >= display.width()) || (y >= display.height())) return;
-  // Serial.println();
-  // Serial.print("Loading image '");
-  // Serial.print(filename);
-  // Serial.println('\'');
+   Serial.println();
+   Serial.print("Loading image '");
+   Serial.print(filename);
+  Serial.println('\'');
   file = SD.open(filename);
   if (!file)
   {
-    //Serial.print("File not found");
+    Serial.print("File not found");
     return;
   }
   // Parse BMP header
@@ -198,15 +214,16 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
     uint32_t format = read32(file);
     if ((planes == 1) && ((format == 0) || (format == 3))) // uncompressed is handled, 565 also
     {
-      // Serial.print("File size: "); Serial.println(fileSize);
-      // //Serial.print("Creator: "); Serial.println(creatorBytes);
-      // Serial.print("Image Offset: "); Serial.println(imageOffset);
-      // Serial.print("Header size: "); Serial.println(headerSize);
-      // Serial.print("Bit Depth: "); Serial.println(depth);
-      // Serial.print("Image size: ");
-      // Serial.print(width);
-      // Serial.print('x');
-      // Serial.println(height);
+       Serial.print("File size: "); Serial.println(fileSize);
+       //Serial.print("Creator: "); Serial.println(creatorBytes);
+      
+       Serial.print("Image Offset: "); Serial.println(imageOffset);
+       Serial.print("Header size: "); Serial.println(headerSize);
+       Serial.print("Bit Depth: "); Serial.println(depth);
+       Serial.print("Image size: ");
+       Serial.print(width);
+       Serial.print('x');
+       Serial.println(height);
       // BMP rows are padded (if needed) to 4-byte boundary
       uint32_t rowSize = (width * depth / 8 + 3) & ~3;
       if (depth < 8) rowSize = ((width * depth + 8 - depth) / 8 + 3) & ~3;
