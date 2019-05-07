@@ -1,9 +1,7 @@
 #include <GxEPD2_3C.h>
-// has support for FAT32 support with long filenames
-//#include "FS.h"
-#include "SD.h"
-#include "SPI.h"
-#include "ArduinoLowPower.h"
+#include <SD.h>
+#include <SPI.h>
+#include <ArduinoLowPower.h>
 
 #define SdFile File
 #define seekSet seek
@@ -13,10 +11,9 @@
 #define EINK_DC 18
 #define EINK_RST 17
 #define EINK_BUSY 161
-#define DELAY_SEC 60 /* Time between wakeups */
+#define DELAY_SEC 60
 #define SLIDESHOW_ROOT "SLIDES"
 
-//#include <Fonts/FreeMonoBold9pt7b.h>
 GxEPD2_3C<GxEPD2_290c, GxEPD2_290c::HEIGHT> display(GxEPD2_290c(EINK_CS, EINK_DC, EINK_RST, EINK_BUSY));
 
 // function declaration with default parameter
