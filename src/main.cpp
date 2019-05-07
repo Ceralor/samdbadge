@@ -20,16 +20,18 @@ GxEPD2_3C<GxEPD2_290c, GxEPD2_290c::HEIGHT> display(GxEPD2_290c(EINK_CS, EINK_DC
 void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_color = true, bool partial_update = false, bool overwrite = false);
 uint32_t read32(SdFile& f);
 uint16_t read16(SdFile& f);
-//void blinkRed();
-void listDir(const char * dirname);
-void getFileNameFromIndex(uint16_t index, const char * dirname);
+void listDir();
+void getFileNameFromIndex();
 void blinkRed(int flashtimes=3);
 void cycleDisplay();
+void flagInterrupt();
+
 // total number of files on SD card
-uint16_t totalFiles = 0;
+int totalFiles = 0;
 // current index, persists deep sleep
-volatile int currIndex = 0;
-volatile bool isPressed = false;
+int currIndex = 0;
+// To make sure multiple wakes aren't triggered
+volatile bool interruptFlagged = false;
 // current file name to load
 char currFile[256];
 
@@ -78,9 +80,9 @@ void blinkRed(int flashtimes){
   }
 }
 
-void listDir( const char * dirname){
-
-    File root = SD.open(dirname);
+// Builds value of totalFiles on reset
+void listDir(){
+    File root = SD.open(SLIDESHOW_ROOT);
     if(!root){
         blinkRed(10);
         return;
@@ -102,8 +104,8 @@ void listDir( const char * dirname){
     root.close();
 }
 
-void getFileNameFromIndex(uint16_t index, const char * dirname){
-    File root = SD.open(dirname);
+void getFileNameFromIndex(){
+    File root = SD.open(SLIDESHOW_ROOT);
     if(!root){
       blinkRed(5);
         return;
@@ -113,13 +115,13 @@ void getFileNameFromIndex(uint16_t index, const char * dirname){
     }
     File file = root.openNextFile();
 
-    uint16_t iter = 0;
+    int iter = 0;
     while(file){
         if(file.isDirectory()){
           // Do nothing for dir
         } else {
-            if(iter == index) {
-              strcpy(currFile, dirname);
+            if(iter == currIndex) {
+              strcpy(currFile, SLIDESHOW_ROOT);
               strcat(currFile,"/");
               strcat(currFile, file.name());
               file.close();
