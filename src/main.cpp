@@ -37,14 +37,10 @@ void setup()
 {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(WAKE_PIN, INPUT_PULLUP);
-  if (!SD.begin(SD_CS))
-  {
-    blinkRed(10);
-    digitalWrite(LED_BUILTIN, 0);
-    return;
-  }
-  LowPower.attachInterruptWakeup(WAKE_PIN, cycleDisplay, CHANGE);
-  LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, cycleDisplay, CHANGE);
+  if(!SD.begin(SD_CS)) blinkRed(10);
+  listDir();
+  LowPower.attachInterruptWakeup(WAKE_PIN, flagInterrupt, CHANGE);
+  LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, flagInterrupt, CHANGE);
 }
 
 void cycleDisplay() {
