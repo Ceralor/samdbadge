@@ -54,17 +54,19 @@ void flagInterrupt() {
 void loop(void)
 {
   digitalWrite(LED_BUILTIN,1);
+  if (interruptFlagged) {
+    cycleDisplay();
+  }
   delay(1000);
   display.init(115200);
-  getFileNameFromIndex(currIndex, SLIDESHOW_ROOT);
-  //drawBitmapFromSD(currFile,0,0); // Commented for now for testing wake cycles, let's flash the light some instead
-  blinkRed();
-  delay(10000);
-  isPressed = false;
-  digitalWrite(LED_BUILTIN,0);
+  getFileNameFromIndex();
+  drawBitmapFromSD(currFile,0,0); // Commented for now for testing wake cycles, let's flash the light some instead
+  //blinkRed(20);
+  interruptFlagged = false;
+  delay(15000);
   display.hibernate();
-  LowPower.sleep(30 * 1000);
-  //LowPower.sleep();
+  digitalWrite(LED_BUILTIN,0);
+  LowPower.sleep(DELAY_SEC * 1000);
 }
 
 void blinkRed(int flashtimes){
