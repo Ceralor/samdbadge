@@ -35,19 +35,14 @@ char currFile[256];
 
 void setup()
 {
-  //Serial.begin(9600);
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(WAKE_PIN, INPUT_PULLUP);
-  //Serial.print("Initializing SD card...");
   if (!SD.begin(SD_CS))
   {
     blinkRed(10);
-  //  Serial.println("SD failed!");
     digitalWrite(LED_BUILTIN, 0);
     return;
   }
-  //Serial.println("SD OK!");
-  //Serial.println("Test done");
   LowPower.attachInterruptWakeup(WAKE_PIN, cycleDisplay, CHANGE);
   LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, cycleDisplay, CHANGE);
 }
@@ -72,18 +67,12 @@ void cycleDisplay() {
 
 void loop(void)
 {
-  blinkRed();
   digitalWrite(LED_BUILTIN,1);
   delay(1000);
   display.init(115200);
-  //esp_sleep_wakeup_cause_t wakeup_reason;
-  //wakeup_reason = esp_sleep_get_wakeup_cause();
-  //if (wakeup_reason != 3 || wakeup_reason != ) currIndex = 0;
-
   getFileNameFromIndex(currIndex, SLIDESHOW_ROOT);
-  //Serial.print("Cycling to file ");
-  //Serial.println(currFile);
-  //drawBitmapFromSD(currFile,0,0);
+  //drawBitmapFromSD(currFile,0,0); // Commented for now for testing wake cycles, let's flash the light some instead
+  blinkRed();
   delay(10000);
   isPressed = false;
   digitalWrite(LED_BUILTIN,0);
@@ -102,32 +91,22 @@ void blinkRed(int flashtimes){
 }
 
 void listDir( const char * dirname){
-    //Serial.printf("Listing directory: %s\n", dirname);
 
     File root = SD.open(dirname);
     if(!root){
-        //Serial.println("Failed to open directory");
         blinkRed(10);
         return;
     }
     if(!root.isDirectory()){
-        // Serial.println("Not a directory");
         return;
     }
-
     File file = root.openNextFile();
-
     totalFiles = 0;
-
     while(file){
         if(file.isDirectory()){
           // Do nothing
         } else {
             totalFiles++;
-            // Serial.print("  FILE: ");
-            // Serial.print(file.name());
-            // Serial.print("  SIZE: ");
-            // Serial.println(file.size());
         }
         file.close();
         file = root.openNextFile();
@@ -144,8 +123,6 @@ void getFileNameFromIndex(uint16_t index, const char * dirname){
     if(!root.isDirectory()){
         return;
     }
-  //  Serial.print("Looking for image file index position ");
-  //  Serial.println(String(index));
     File file = root.openNextFile();
 
     uint16_t iter = 0;
@@ -187,14 +164,9 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
   bool flip = true; // bitmap is stored bottom-to-top
   uint32_t startTime = millis();
   if ((x >= display.width()) || (y >= display.height())) return;
-  // Serial.println();
-  // Serial.print("Loading image '");
-  // Serial.print(filename);
-  //Serial.println('\'');
   file = SD.open(filename);
   if (!file)
   {
-  //  Serial.print("File not found");
     return;
   }
   // Parse BMP header
@@ -211,16 +183,7 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
     uint32_t format = read32(file);
     if ((planes == 1) && ((format == 0) || (format == 3))) // uncompressed is handled, 565 also
     {
-  //     Serial.print("File size: "); Serial.println(fileSize);
-       //Serial.print("Creator: "); Serial.println(creatorBytes);
       
-  //     Serial.print("Image Offset: "); Serial.println(imageOffset);
-  //     Serial.print("Header size: "); Serial.println(headerSize);
-  //     Serial.print("Bit Depth: "); Serial.println(depth);
-  //     Serial.print("Image size: ");
-  //     Serial.print(width);
-  //     Serial.print('x');
-  //     Serial.println(height);
       // BMP rows are padded (if needed) to 4-byte boundary
       uint32_t rowSize = (width * depth / 8 + 3) & ~3;
       if (depth < 8) rowSize = ((width * depth + 8 - depth) / 8 + 3) & ~3;
@@ -348,7 +311,6 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
           } // end line
         }
         while (display.nextPage());
-  //      Serial.print("loaded in "); Serial.print(millis() - startTime); Serial.println(" ms");
         delay(1000);
       }
     }
@@ -357,7 +319,6 @@ void drawBitmapFromSD(const char *filename, int16_t x, int16_t y, bool with_colo
   delay(1000);
   if (!valid)
   {
-  //  Serial.println("bitmap format not handled.");
   }
 }
 
