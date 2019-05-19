@@ -1,7 +1,19 @@
 #include <GxEPD2_3C.h>
 #include <SD.h>
 #include <SPI.h>
-#include <ArduinoLowPower.h>
+
+// Define the different library to use for sleep per CPU
+#if TEENSY
+//#error TODO: Get SD working correctly?
+# include <Snooze.h>
+SnoozeDigital digital;
+SnoozeTimer timer;
+SnoozeBlock config(timer, digital);
+#endif
+
+#if SAMD21
+# include <ArduinoLowPower.h>
+#endif
 
 #define SdFile File
 #define seekSet seek
@@ -25,6 +37,8 @@ void getFileNameFromIndex();
 void blinkRed(int flashtimes=3);
 void cycleDisplay();
 void flagInterrupt();
+void setupSleep();
+void goToSleep();
 
 // total number of files on SD card
 int totalFiles = 0;
@@ -37,12 +51,11 @@ char currFile[256];
 
 void setup()
 {
+  int temp;
   pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(WAKE_PIN, INPUT_PULLUP);
   if(!SD.begin(SD_CS)) blinkRed(10);
   listDir();
-  LowPower.attachInterruptWakeup(WAKE_PIN, flagInterrupt, CHANGE);
-  LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, flagInterrupt, CHANGE);
+  setupSleep();
 }
 
 void cycleDisplay() {
@@ -68,8 +81,29 @@ void loop(void)
   delay(15000);
   display.hibernate();
   digitalWrite(LED_BUILTIN,0);
+  goToSleep();
+}
+
+#if SAMD21
+void setupSleep() {
+  pinMode(WAKE_PIN, INPUT_PULLUP);
+  LowPower.attachInterruptWakeup(WAKE_PIN, flagInterrupt, CHANGE);
+  LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, flagInterrupt, CHANGE);
+}
+void goToSleep() {
   LowPower.sleep(DELAY_SEC * 1000);
 }
+#endif
+
+#if TEENSY
+void setupSleep() {
+  digital.pinMode(WAKE_PIN, INPUT_PULLUP, RISING);
+  timer.setTimer(DELAY_SEC * 1000);
+}
+void goToSleep() {
+  int who = Snooze.sleep(config);
+}
+#endif
 
 void blinkRed(int flashtimes){
   for (int i=0;i<flashtimes;i++){
