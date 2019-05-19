@@ -10,7 +10,7 @@
 #define EINK_CS 19
 #define EINK_DC 18
 #define EINK_RST 17
-#define EINK_BUSY 161
+#define EINK_BUSY 16
 #define DELAY_SEC 7*60
 #define SLIDESHOW_ROOT "SLIDES"
 
