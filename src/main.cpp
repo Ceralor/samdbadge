@@ -55,8 +55,6 @@ void setup()
   int temp;
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(EINK_PW, OUTPUT);
-  if(!SD.begin(SD_CS)) blinkRed(10);
-  listDir();
   setupSleep();
 }
 
@@ -70,7 +68,13 @@ void flagInterrupt() {
 
 void loop(void)
 {
-  digitalWrite(LED_BUILTIN,1);
+  if(!SD.begin(SD_CS)) {
+    blinkRed(30);
+    goToSleep();
+  } else {
+    listDir();
+  }
+  blinkRed(1);
   digitalWrite(EINK_PW, 1);
   if (interruptFlagged) {
     cycleDisplay();
@@ -83,8 +87,9 @@ void loop(void)
   interruptFlagged = false;
   delay(500);
   display.hibernate();
+  SD.end();
   delay(100);
-  digitalWrite(LED_BUILTIN,0);
+  blinkRed(2);
   digitalWrite(EINK_PW, 0);
   delay(100);
   goToSleep();
@@ -114,9 +119,9 @@ void goToSleep() {
 void blinkRed(int flashtimes){
   for (int i=0;i<flashtimes;i++){
     digitalWrite(LED_BUILTIN,1);
-    delay(300);
+    delay(100);
     digitalWrite(LED_BUILTIN,0);
-    delay(300);
+    delay(100);
   }
 }
 
