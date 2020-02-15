@@ -19,6 +19,7 @@ SnoozeBlock config(timer, digital);
 #define seekSet seek
 #define SD_CS 4
 #define WAKE_PIN 15
+#define EINK_PW 14
 #define EINK_CS 19
 #define EINK_DC 18
 #define EINK_RST 17
@@ -53,6 +54,7 @@ void setup()
 {
   int temp;
   pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(EINK_PW, OUTPUT);
   if(!SD.begin(SD_CS)) blinkRed(10);
   listDir();
   setupSleep();
@@ -69,6 +71,7 @@ void flagInterrupt() {
 void loop(void)
 {
   digitalWrite(LED_BUILTIN,1);
+  digitalWrite(EINK_PW, 1);
   if (interruptFlagged) {
     cycleDisplay();
   }
@@ -80,7 +83,9 @@ void loop(void)
   interruptFlagged = false;
   delay(500);
   display.hibernate();
+  delay(100);
   digitalWrite(LED_BUILTIN,0);
+  digitalWrite(EINK_PW, 0);
   delay(100);
   goToSleep();
 }
