@@ -24,7 +24,7 @@ SnoozeBlock config(timer, digital);
 #define EINK_DC 18
 #define EINK_RST 17
 #define EINK_BUSY 16
-#define DELAY_SEC 600
+#define DELAY_SEC 300
 #define SLIDESHOW_ROOT "SLIDES"
 
 GxEPD2_3C<GxEPD2_290c, GxEPD2_290c::HEIGHT> display(GxEPD2_290c(EINK_CS, EINK_DC, EINK_RST, EINK_BUSY));
