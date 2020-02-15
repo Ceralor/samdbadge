@@ -72,15 +72,16 @@ void loop(void)
   if (interruptFlagged) {
     cycleDisplay();
   }
-  delay(1000);
+  delay(500);
   display.init(115200);
   getFileNameFromIndex();
   drawBitmapFromSD(currFile,0,0); // Commented for now for testing wake cycles, let's flash the light some instead
   //blinkRed(20);
   interruptFlagged = false;
-  delay(15000);
+  delay(500);
   display.hibernate();
   digitalWrite(LED_BUILTIN,0);
+  delay(100);
   goToSleep();
 }
 
@@ -91,7 +92,7 @@ void setupSleep() {
   LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, flagInterrupt, CHANGE);
 }
 void goToSleep() {
-  LowPower.sleep(DELAY_SEC * 1000);
+  LowPower.deepSleep(DELAY_SEC * 1000);
 }
 #endif
 
